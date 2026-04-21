@@ -946,24 +946,25 @@ function hexAlpha(hex, a) {
   return `rgba(${r},${g},${b},${a})`;
 }
 
-function PipelineFlowChart({ rows, openModal, onExpand, isFullScreen }) {
+function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen }) {
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline' | 'yoy'
   const canvasRef  = useRef(null);
   const chartRef   = useRef(null);
   const rowsRef    = useRef(rows);
   useEffect(() => { rowsRef.current = rows; }, [rows]);
 
-  // Build YoY lookup: { year: { monthIndex: row } }
+  // Build YoY lookup from allTimeRows so date filter doesn't affect it
   const yoyData = useMemo(() => {
+    const source = yoyRows || rows;
     const byYear = {};
-    for (const row of rows) {
+    for (const row of source) {
       const yr = row.month.getFullYear();
       const mo = row.month.getMonth();
       if (!byYear[yr]) byYear[yr] = {};
       byYear[yr][mo] = row;
     }
     return { byYear, years: Object.keys(byYear).map(Number).sort() };
-  }, [rows]);
+  }, [yoyRows, rows]);
 
   useEffect(() => {
     if (!canvasRef.current || !rows.length) return;
@@ -1069,7 +1070,7 @@ function PipelineFlowChart({ rows, openModal, onExpand, isFullScreen }) {
     }
 
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [rows, viewMode]);
+  }, [rows, yoyRows, viewMode]);
 
   return (
     <div className={isFullScreen ? undefined : 'chart-card'} style={isFullScreen ? { height: '100%', display: 'flex', flexDirection: 'column' } : undefined}>
@@ -1354,6 +1355,12 @@ function App() {
     [data, selectedOwners, dateRange, customStart, customEnd]
   );
 
+  // All-time rows for YoY chart — ignores date range filter, respects owner filter
+  const allTimeRows = useMemo(
+    () => computeMonthlyData(data?.deals, data?.pipeline, selectedOwners, 'all', '', ''),
+    [data, selectedOwners]
+  );
+
   const DATE_RANGES = [
     { key: 'all',    label: 'All Time' },
     { key: 'ytd',    label: 'YTD'      },
@@ -1518,14 +1525,14 @@ function App() {
             <KPICards rows={rows} openModal={openModal} />
 
             <div className="charts-row">
-              <PipelineFlowChart rows={rows} openModal={openModal} onExpand={() => setFullScreenChart('flow')} />
+              <PipelineFlowChart rows={rows} yoyRows={allTimeRows} openModal={openModal} onExpand={() => setFullScreenChart('flow')} />
               <OpenPipelineChart rows={rows} pipeline={data?.pipeline} selectedStages={selectedStages} openModal={openModal} onExpand={() => setFullScreenChart('open')} />
             </div>
 
             {/* Full-screen chart modals */}
             {fullScreenChart === 'flow' && (
               <FullScreenChartModal title="Monthly Pipeline Flow" onClose={() => setFullScreenChart(null)}>
-                <PipelineFlowChart rows={rows} openModal={openModal} isFullScreen />
+                <PipelineFlowChart rows={rows} yoyRows={allTimeRows} openModal={openModal} isFullScreen />
               </FullScreenChartModal>
             )}
             {fullScreenChart === 'open' && (
