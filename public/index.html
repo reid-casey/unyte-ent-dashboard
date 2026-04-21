@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enterprise Pipeline — Unyte</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Montserrat:wght@400;500;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet" />
+
+  <!-- React + Babel -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --coral:       #D96B4F;
+      --coral-light: #F0A58D;
+      --coral-pale:  #FEF0EC;
+      --slate:       #425B76;
+      --slate-dark:  #2C3E52;
+      --slate-deep:  #1E2D3D;
+      --green:       #3DAA6E;
+      --green-pale:  #EBF7F1;
+      --red:         #C0392B;
+      --red-pale:    #FDECEA;
+      --blue:        #2E86C1;
+      --blue-pale:   #EBF4FB;
+      --text-dark:   #1E2A35;
+      --text-mid:    #4A5A6A;
+      --text-light:  #7A8FA0;
+      --border:      #DDE3E9;
+      --bg:          #F2F5F8;
+      --white:       #FFFFFF;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'Lato', sans-serif;
+      background: var(--bg);
+      color: var(--text-dark);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    .header {
+      background: var(--slate-deep);
+      color: #fff;
+      padding: 0 32px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-title {
+      font-family: 'Merriweather', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .header-subtitle {
+      font-size: 12px;
+      color: var(--text-light);
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 500;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+    .header-logo { height: 54px; opacity: .9; }
+    .header-divider {
+      width: 1px; height: 32px; background: rgba(255,255,255,.15); margin: 0 4px;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 20px;
+    }
+    .toolbar-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .toolbar-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      white-space: nowrap;
+    }
+    .toolbar-sep { width: 1px; height: 28px; background: var(--border); }
+    .toolbar-spacer { flex: 1; }
+
+    /* Date range pills */
+    .range-pills { display: flex; gap: 4px; }
+    .range-pill {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Montserrat', sans-serif;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text-mid);
+      transition: all .15s;
+    }
+    .range-pill:hover { border-color: var(--slate); color: var(--slate); }
+    .range-pill.active {
+      background: var(--slate-deep);
+      border-color: var(--slate-deep);
+      color: #fff;
+    }
+
+    /* Owner filter dropdown */
+    .owner-filter { position: relative; }
+    .owner-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--white);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Montserrat', sans-serif;
+      cursor: pointer;
+      color: var(--text-mid);
+      white-space: nowrap;
+    }
+    .owner-btn:hover { border-color: var(--slate); }
+    .owner-btn.has-filter { border-color: var(--slate); color: var(--slate); background: #EEF2F7; }
+    .owner-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      padding: 8px;
+      min-width: 220px;
+      z-index: 100;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .owner-option {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-dark);
+    }
+    .owner-option:hover { background: var(--bg); }
+    .owner-option input[type="checkbox"] { accent-color: var(--slate); width: 14px; height: 14px; }
+    .owner-clear {
+      font-size: 11px; color: var(--coral); cursor: pointer;
+      padding: 6px 10px; font-weight: 600;
+    }
+    .owner-clear:hover { text-decoration: underline; }
+
+    /* Refresh buttons */
+    .btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'Montserrat', sans-serif;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s;
+    }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn-primary { background: var(--slate-deep); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--slate-dark); }
+    .btn-secondary { background: var(--white); color: var(--slate); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { border-color: var(--slate); }
+    .btn-coral { background: var(--coral); color: #fff; }
+    .btn-coral:hover:not(:disabled) { background: #c05a40; }
+    .refresh-status { font-size: 11px; color: var(--text-light); white-space: nowrap; }
+
+    /* ── KPI Cards ───────────────────────────────────────────────────── */
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .kpi-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .kpi-card.added::before    { background: var(--slate); }
+    .kpi-card.closedwon::before { background: var(--green); }
+    .kpi-card.closedlost::before { background: var(--red); }
+    .kpi-card.openend::before   { background: var(--coral); }
+    .kpi-label {
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'Montserrat', sans-serif;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 700;
+      font-family: 'Merriweather', serif;
+      color: var(--text-dark);
+      line-height: 1.1;
+    }
+    .kpi-count {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-top: 4px;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ── Charts ──────────────────────────────────────────────────────── */
+    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .chart-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+    }
+    .chart-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 16px;
+    }
+    .chart-subtitle { font-size: 11px; color: var(--text-light); font-weight: 400; margin-left: 6px; }
+
+    /* ── Table ───────────────────────────────────────────────────────── */
+    .table-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .table-header {
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .table-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+    .table-note { font-size: 11px; color: var(--text-light); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 10px 16px;
+      text-align: right;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      color: var(--text-light);
+      font-family: 'Montserrat', sans-serif;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    thead th:first-child { text-align: left; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #FAFBFC; }
+    tbody td {
+      padding: 11px 16px;
+      font-size: 13px;
+      text-align: right;
+      color: var(--text-dark);
+    }
+    tbody td:first-child { text-align: left; font-weight: 700; color: var(--text-mid); }
+    tfoot td {
+      padding: 11px 16px;
+      font-size: 13px;
+      text-align: right;
+      font-weight: 700;
+      color: var(--text-dark);
+      background: var(--bg);
+      border-top: 2px solid var(--border);
+    }
+    tfoot td:first-child { text-align: left; }
+    .td-green { color: var(--green); }
+    .td-red   { color: var(--red);   }
+    .td-coral { color: var(--coral); font-weight: 700; }
+    .td-net-pos { color: var(--green); }
+    .td-net-neg { color: var(--red); }
+
+    /* ── Empty / loading ─────────────────────────────────────────────── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 60px 32px; text-align: center;
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 16px; }
+    .empty-title { font-family: 'Merriweather', serif; font-size: 18px; color: var(--text-dark); margin-bottom: 8px; }
+    .empty-desc  { font-size: 14px; color: var(--text-light); max-width: 420px; line-height: 1.6; }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--slate);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-banner {
+      background: var(--red-pale); border: 1px solid #F5C6CB;
+      border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;
+      font-size: 13px; color: var(--red);
+    }
+
+    /* ── Drill-down modal ────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 400; padding: 20px;
+    }
+    .modal {
+      background: var(--white); border-radius: 12px;
+      width: 100%; max-width: 780px; max-height: 82vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 16px 48px rgba(0,0,0,.2);
+    }
+    .modal-header {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .modal-title { font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-dark); }
+    .modal-subtitle { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+    .modal-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 20px; color: var(--text-light); line-height: 1;
+      padding: 4px; border-radius: 4px;
+    }
+    .modal-close:hover { background: var(--bg); color: var(--text-dark); }
+    .modal-body { overflow-y: auto; flex: 1; }
+    .modal-deal {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 22px; border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .modal-deal:last-child { border-bottom: none; }
+    .modal-deal-name {
+      font-size: 13px; color: var(--text-dark); flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .modal-deal-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .modal-deal-amount { font-size: 13px; font-weight: 700; color: var(--text-dark); }
+    .modal-deal-link {
+      font-size: 11px; color: var(--slate); text-decoration: none;
+      font-family: 'Montserrat', sans-serif; font-weight: 600;
+      border: 1px solid var(--border); border-radius: 5px;
+      padding: 3px 8px; white-space: nowrap;
+    }
+    .modal-deal-link:hover { border-color: var(--slate); background: #EEF2F7; }
+    .modal-deal-link-name {
+      font-size: 13px; color: #C05A3A; text-decoration: underline;
+      text-decoration-color: rgba(192, 90, 58, 0.45);
+      text-underline-offset: 2px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: block;
+    }
+    .modal-deal-link-name:hover {
+      color: var(--coral);
+      text-decoration-color: var(--coral);
+    }
+    .modal-empty { padding: 32px; text-align: center; color: var(--text-light); font-size: 13px; }
+    td.clickable { cursor: pointer; }
+    td.clickable:hover { background: #EEF2F7 !important; }
+    .kpi-card.clickable { cursor: pointer; transition: box-shadow .15s, transform .1s; }
+    .kpi-card.clickable:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); transform: translateY(-1px); }
+
+    /* ── Custom date inputs ───────────────────────────────────────────── */
+    .date-inputs { display: flex; align-items: center; gap: 6px; }
+    .date-input {
+      padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 12px; font-family: 'Lato', sans-serif; color: var(--text-dark);
+      background: var(--white); outline: none;
+    }
+    .date-input:focus { border-color: var(--slate); }
+    .date-sep { font-size: 11px; color: var(--text-light); }
+
+    /* ── Stage filter (reuses owner-filter styles) ────────────────────── */
+    .stage-dot {
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    }
+
+    /* ── Chart expand button ─────────────────────────────────────────────── */
+    .chart-title-row {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .chart-expand-btn {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; padding: 3px 7px; font-size: 14px; color: var(--text-light);
+      line-height: 1; flex-shrink: 0; margin-left: 8px;
+      transition: border-color .15s, color .15s;
+    }
+    .chart-expand-btn:hover { border-color: var(--slate); color: var(--slate); }
+
+    /* ── Full-screen chart modal ─────────────────────────────────────────── */
+    .fullscreen-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 300; padding: 20px;
+    }
+    .fullscreen-box {
+      background: var(--white); border-radius: 14px;
+      width: 94vw; height: 88vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,.3);
+    }
+    .fullscreen-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .fullscreen-title {
+      font-family: 'Montserrat', sans-serif; font-size: 15px;
+      font-weight: 700; color: var(--text-dark);
+    }
+    .fullscreen-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 22px; color: var(--text-light); padding: 4px 8px;
+      border-radius: 4px; line-height: 1;
+    }
+    .fullscreen-close:hover { background: var(--bg); color: var(--text-dark); }
+    .fullscreen-body {
+      flex: 1; padding: 20px 22px; position: relative; min-height: 0;
+    }
+
+    /* ── Modal search ────────────────────────────────────────────────────── */
+    .modal-search-wrap {
+      padding: 10px 22px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .modal-search-input {
+      width: 100%; padding: 7px 12px;
+      border: 1px solid var(--border); border-radius: 7px;
+      font-size: 13px; font-family: 'Lato', sans-serif;
+      color: var(--text-dark); outline: none; background: var(--bg);
+    }
+    .modal-search-input:focus { border-color: var(--slate); background: var(--white); }
+    .modal-search-count { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+
+    /* ── Deal meta row ───────────────────────────────────────────────────── */
+    .modal-deal-meta {
+      display: flex; gap: 14px; flex-wrap: wrap;
+      font-size: 11px; color: var(--text-light);
+      margin-top: 3px; font-family: 'Montserrat', sans-serif;
+    }
+    .modal-deal-meta span { white-space: nowrap; }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .charts-row { grid-template-columns: 1fr; }
+      .main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const {
+  useState, useEffect, useRef, useCallback, useMemo
+} = React;
+
+// ── Colours ───────────────────────────────────────────────────────────────────
+const C = {
+  slate:  '#425B76',
+  deep:   '#1E2D3D',
+  coral:  '#D96B4F',
+  green:  '#3DAA6E',
+  red:    '#C0392B',
+  blue:   '#2E86C1',
+  border: '#DDE3E9',
+  bg:     '#F2F5F8',
+};
+
+// Stage color palette (assigned by stage order in pipeline)
+const STAGE_PALETTE = ['#425B76','#2E86C1','#8E44AD','#E67E22','#3DAA6E','#C0392B','#16A085','#D35400'];
+function stageColor(idx) { return STAGE_PALETTE[idx % STAGE_PALETTE.length]; }
+
+// ── Formatting ────────────────────────────────────────────────────────────────
+function fmt$(n) {
+  if (!n && n !== 0) return '—';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(0)}K`;
+  return `${sign}$${abs.toLocaleString()}`;
+}
+
+function fmtFull$(n) {
+  if (!n && n !== 0) return '—';
+  return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function fmtMonth(date) {
+  return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return 'Never';
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+// ── Monthly computation engine ────────────────────────────────────────────────
+function computeMonthlyData(deals, pipeline, selectedOwners, dateRange, customStart, customEnd) {
+  if (!deals?.length || !pipeline) return [];
+
+  // Owner filter
+  const filtered = selectedOwners.size === 0
+    ? deals
+    : deals.filter(d => selectedOwners.has(d.ownerId));
+
+  if (!filtered.length) return [];
+
+  // Resolve date range bounds
+  const now = new Date();
+  let rangeStart, rangeEnd = now;
+  switch (dateRange) {
+    case '3m':     rangeStart = new Date(now.getFullYear(), now.getMonth() - 2, 1); break;
+    case '6m':     rangeStart = new Date(now.getFullYear(), now.getMonth() - 5, 1); break;
+    case '12m':    rangeStart = new Date(now.getFullYear(), now.getMonth() - 11, 1); break;
+    case 'ytd':    rangeStart = new Date(now.getFullYear(), 0, 1); break;
+    case 'custom':
+      rangeStart = customStart ? new Date(customStart) : new Date(now.getFullYear(), 0, 1);
+      rangeEnd   = customEnd   ? new Date(customEnd)   : now;
+      break;
+    default: { // 'all'
+      const earliest = filtered.reduce((min, d) => {
+        const t = new Date(d.createdate).getTime();
+        return t < min ? t : min;
+      }, Date.now());
+      const e = new Date(earliest);
+      rangeStart = new Date(e.getFullYear(), e.getMonth(), 1);
+      break;
+    }
+  }
+
+  // Generate month buckets
+  const months = [];
+  let cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+  const endCap = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+  while (cur <= endCap) {
+    months.push(new Date(cur));
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+
+  return months.map(monthStart => {
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59, 999);
+    const msEnd    = monthEnd.getTime();
+    const msStart  = monthStart.getTime();
+
+    let added = 0, addedCount = 0, addedDeals = [];
+    let closedWon = 0, closedWonCount = 0, closedWonDeals = [];
+    let closedLost = 0, closedLostCount = 0, closedLostDeals = [];
+    let openAtEnd = 0, openAtEndCount = 0, openAtEndDeals = [];
+    const openAtEndByStage = {}; // stageId → { amount, count, deals[] }
+
+    for (const deal of filtered) {
+      const amount   = deal.amount || 0;
+      const createTs = new Date(deal.createdate).getTime();
+      const cwTs     = deal.closedWonDate  ? new Date(deal.closedWonDate).getTime()  : null;
+      const clTs     = deal.closedLostDate ? new Date(deal.closedLostDate).getTime() : null;
+      const closedate = deal.closedate || deal.closedWonDate || deal.closedLostDate || null;
+      const ref      = { id: deal.id, name: deal.name, amount, stageId: deal.currentStage, ownerId: deal.ownerId, closedate };
+
+      // Added in this month
+      if (createTs >= msStart && createTs <= msEnd) {
+        added += amount; addedCount++; addedDeals.push(ref);
+      }
+
+      // Closed Won in this month
+      if (cwTs && cwTs >= msStart && cwTs <= msEnd) {
+        closedWon += amount; closedWonCount++; closedWonDeals.push(ref);
+      }
+
+      // Closed Lost in this month
+      if (clTs && clTs >= msStart && clTs <= msEnd) {
+        closedLost += amount; closedLostCount++; closedLostDeals.push(ref);
+      }
+
+      // Open at end of month
+      if (createTs <= msEnd) {
+        const isOpen = (!cwTs || cwTs > msEnd) && (!clTs || clTs > msEnd);
+        if (isOpen) {
+          openAtEnd += amount; openAtEndCount++; openAtEndDeals.push(ref);
+          const sid = deal.currentStage || 'unknown';
+          if (!openAtEndByStage[sid]) openAtEndByStage[sid] = { amount: 0, count: 0, deals: [] };
+          openAtEndByStage[sid].amount += amount;
+          openAtEndByStage[sid].count++;
+          openAtEndByStage[sid].deals.push(ref);
+        }
+      }
+    }
+
+    return {
+      month: monthStart, label: fmtMonth(monthStart),
+      added, addedCount, addedDeals,
+      closedWon, closedWonCount, closedWonDeals,
+      closedLost, closedLostCount, closedLostDeals,
+      openAtEnd, openAtEndCount, openAtEndDeals,
+      openAtEndByStage,
+      netChange: added - closedWon - closedLost,
+    };
+  });
+}
+
+// ── Chart.js defaults ─────────────────────────────────────────────────────────
+const CHART_DEFAULTS = {
+  font:   { family: "'Lato', sans-serif", size: 11 },
+  color:  '#7A8FA0',
+  border: '#DDE3E9',
+};
+
+// ── Owner Filter ───────────────────────────────────────────────────────────────
+function OwnerFilter({ owners, deals, selectedOwners, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Only show owners that actually have deals in this pipeline
+  const pipelineOwnerIds = useMemo(() => {
+    const ids = new Set();
+    for (const d of deals || []) { if (d.ownerId) ids.add(d.ownerId); }
+    return ids;
+  }, [deals]);
+
+  const ownerList = Object.values(owners || {})
+    .filter(o => pipelineOwnerIds.has(o.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const hasFilter = selectedOwners.size > 0;
+  const label = hasFilter
+    ? selectedOwners.size === 1
+      ? ownerList.find(o => selectedOwners.has(o.id))?.name || 'Owner'
+      : `${selectedOwners.size} owners`
+    : 'All owners';
+
+  function toggle(id) {
+    const next = new Set(selectedOwners);
+    next.has(id) ? next.delete(id) : next.add(id);
+    onChange(next);
+  }
+
+  return (
+    <div className="owner-filter" ref={ref}>
+      <button
+        className={`owner-btn${hasFilter ? ' has-filter' : ''}`}
+        onClick={() => setOpen(v => !v)}
+      >
+        <span>👤</span>
+        <span>{label}</span>
+        <span style={{ opacity: .5 }}>▾</span>
+      </button>
+      {open && (
+        <div className="owner-dropdown">
+          {hasFilter && (
+            <div className="owner-clear" onClick={() => onChange(new Set())}>
+              Clear filter
+            </div>
+          )}
+          {ownerList.length === 0 && (
+            <div style={{ padding: '8px 10px', fontSize: 12, color: '#7A8FA0' }}>No owners found</div>
+          )}
+          {ownerList.map(o => (
+            <label key={o.id} className="owner-option">
+              <input
+                type="checkbox"
+                checked={selectedOwners.has(o.id)}
+                onChange={() => toggle(o.id)}
+              />
+              <span>{o.name}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Stage Filter ──────────────────────────────────────────────────────────────
+function StageFilter({ stages, selectedStages, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const hasFilter = selectedStages.size > 0;
+  const label = hasFilter ? `${selectedStages.size} stage${selectedStages.size !== 1 ? 's' : ''}` : 'All stages';
+
+  function toggle(id) {
+    const next = new Set(selectedStages);
+    next.has(id) ? next.delete(id) : next.add(id);
+    onChange(next);
+  }
+
+  return (
+    <div className="owner-filter" ref={ref}>
+      <button
+        className={`owner-btn${hasFilter ? ' has-filter' : ''}`}
+        onClick={() => setOpen(v => !v)}
+      >
+        <span>🎨</span>
+        <span>{label}</span>
+        <span style={{ opacity: .5 }}>▾</span>
+      </button>
+      {open && (
+        <div className="owner-dropdown">
+          {hasFilter && (
+            <div className="owner-clear" onClick={() => onChange(new Set())}>Show all stages</div>
+          )}
+          {stages.map((s, i) => (
+            <label key={s.id} className="owner-option">
+              <input
+                type="checkbox"
+                checked={!hasFilter || selectedStages.has(s.id)}
+                onChange={() => toggle(s.id)}
+              />
+              <span className="stage-dot" style={{ background: stageColor(i) }} />
+              <span>{s.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Drill-Down Modal ──────────────────────────────────────────────────────────
+function DrillDownModal({ title, subtitle, deals, portalId, owners, pipeline, onClose }) {
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  const hsUrl = id =>
+    portalId
+      ? `https://app.hubspot.com/contacts/${portalId}/record/0-3/${id}`
+      : `https://app.hubspot.com/contacts/record/0-3/${id}`;
+
+  const stageMap = useMemo(() => {
+    const m = {};
+    (pipeline?.stages || []).forEach(s => { m[s.id] = s.label; });
+    return m;
+  }, [pipeline]);
+
+  const sorted   = [...deals].sort((a, b) => (b.amount || 0) - (a.amount || 0));
+  const q        = search.trim().toLowerCase();
+  const filtered = q
+    ? sorted.filter(d => {
+        const owner = (d.ownerId && owners?.[d.ownerId]) || {};
+        return d.name.toLowerCase().includes(q)
+          || (owner.firstName || '').toLowerCase().includes(q)
+          || (owner.lastName  || '').toLowerCase().includes(q);
+      })
+    : sorted;
+  const total    = deals.reduce((s, d) => s + (d.amount || 0), 0);
+
+  return (
+    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal">
+        <div className="modal-header">
+          <div>
+            <div className="modal-title">{title}</div>
+            <div className="modal-subtitle">{deals.length} deal{deals.length !== 1 ? 's' : ''} · {fmtFull$(total)}</div>
+          </div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-search-wrap">
+          <input
+            type="text"
+            className="modal-search-input"
+            placeholder="Search deals…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            autoFocus
+          />
+          {q && <div className="modal-search-count">{filtered.length} of {deals.length} deals</div>}
+        </div>
+        <div className="modal-body">
+          {filtered.length === 0 && <div className="modal-empty">No deals match "{search}"</div>}
+          {filtered.map(d => {
+            const ownerName  = (d.ownerId && owners?.[d.ownerId]?.name) || 'Unassigned';
+            const stageName  = stageMap[d.stageId] || '—';
+            const closeDateStr = d.closedate
+              ? new Date(d.closedate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : '—';
+            return (
+              <div key={d.id} className="modal-deal">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <a
+                    href={hsUrl(d.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="modal-deal-name modal-deal-link-name"
+                    title={d.name}
+                  >
+                    {d.name}<sup style={{ fontSize: '0.6em', marginLeft: 3, opacity: 0.75 }}>↗</sup>
+                  </a>
+                  <div className="modal-deal-meta">
+                    <span>👤 {ownerName}</span>
+                    <span>📅 {closeDateStr}</span>
+                    <span>{stageName}</span>
+                  </div>
+                </div>
+                <div className="modal-deal-right">
+                  <span className="modal-deal-amount">{fmtFull$(d.amount)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Full-Screen Chart Modal ───────────────────────────────────────────────────
+function FullScreenChartModal({ title, onClose, children }) {
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  return (
+    <div className="fullscreen-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="fullscreen-box">
+        <div className="fullscreen-header">
+          <div className="fullscreen-title">{title}</div>
+          <button className="fullscreen-close" onClick={onClose}>×</button>
+        </div>
+        <div className="fullscreen-body">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── KPI Cards ─────────────────────────────────────────────────────────────────
+function KPICards({ rows, openModal }) {
+  const totals = useMemo(() => rows.reduce((acc, r) => ({
+    added:           acc.added           + r.added,
+    addedCount:      acc.addedCount      + r.addedCount,
+    addedDeals:      [...acc.addedDeals,      ...r.addedDeals],
+    closedWon:       acc.closedWon       + r.closedWon,
+    closedWonCount:  acc.closedWonCount  + r.closedWonCount,
+    closedWonDeals:  [...acc.closedWonDeals,  ...r.closedWonDeals],
+    closedLost:      acc.closedLost      + r.closedLost,
+    closedLostCount: acc.closedLostCount + r.closedLostCount,
+    closedLostDeals: [...acc.closedLostDeals, ...r.closedLostDeals],
+  }), { added: 0, addedCount: 0, addedDeals: [], closedWon: 0, closedWonCount: 0, closedWonDeals: [], closedLost: 0, closedLostCount: 0, closedLostDeals: [] }), [rows]);
+
+  const lastRow   = rows[rows.length - 1];
+  const openAtEnd = lastRow?.openAtEnd       || 0;
+  const openCount = lastRow?.openAtEndCount  || 0;
+  const openDeals = lastRow?.openAtEndDeals  || [];
+
+  return (
+    <div className="kpi-row">
+      <div className="kpi-card added clickable" onClick={() => openModal('Total Added', 'All deals added in range', totals.addedDeals)}>
+        <div className="kpi-label">Total Added</div>
+        <div className="kpi-value">{fmt$(totals.added)}</div>
+        <div className="kpi-count">{totals.addedCount} deal{totals.addedCount !== 1 ? 's' : ''}</div>
+      </div>
+      <div className="kpi-card closedwon clickable" onClick={() => openModal('Closed Won', 'All deals won in range', totals.closedWonDeals)}>
+        <div className="kpi-label">Closed Won</div>
+        <div className="kpi-value" style={{ color: C.green }}>{fmt$(totals.closedWon)}</div>
+        <div className="kpi-count">{totals.closedWonCount} deal{totals.closedWonCount !== 1 ? 's' : ''}</div>
+      </div>
+      <div className="kpi-card closedlost clickable" onClick={() => openModal('Closed Lost', 'All deals lost in range', totals.closedLostDeals)}>
+        <div className="kpi-label">Closed Lost</div>
+        <div className="kpi-value" style={{ color: C.red }}>{fmt$(totals.closedLost)}</div>
+        <div className="kpi-count">{totals.closedLostCount} deal{totals.closedLostCount !== 1 ? 's' : ''}</div>
+      </div>
+      <div className="kpi-card openend clickable" onClick={() => openModal('Open Pipeline (Now)', 'Deals currently open at end of range', openDeals)}>
+        <div className="kpi-label">Open Pipeline (Now)</div>
+        <div className="kpi-value" style={{ color: C.coral }}>{fmt$(openAtEnd)}</div>
+        <div className="kpi-count">{openCount} deal{openCount !== 1 ? 's' : ''} open</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Bar Chart (Chart.js) ──────────────────────────────────────────────────────
+function PipelineFlowChart({ rows, openModal, onExpand, isFullScreen }) {
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+  const rowsRef   = useRef(rows);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+
+  useEffect(() => {
+    if (!canvasRef.current || !rows.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    const bucketKeys   = ['addedDeals', 'closedWonDeals', 'closedLostDeals', 'openAtEndDeals'];
+    const bucketLabels = ['Added', 'Closed Won', 'Closed Lost', 'Open at End'];
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [
+          { label: 'Added',       data: rows.map(r => r.added),      backgroundColor: C.slate,  borderRadius: 3 },
+          { label: 'Won',         data: rows.map(r => r.closedWon),  backgroundColor: C.green,  borderRadius: 3 },
+          { label: 'Lost',        data: rows.map(r => r.closedLost), backgroundColor: C.red,    borderRadius: 3 },
+          { label: 'Open at End', data: rows.map(r => r.openAtEnd),  backgroundColor: C.coral,  borderRadius: 3 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+        onClick: (e, els) => {
+          if (!els.length) return;
+          const { datasetIndex, index } = els[0];
+          const row = rowsRef.current[index];
+          if (!row) return;
+          openModal(`${bucketLabels[datasetIndex]} — ${row.label}`, '', row[bucketKeys[datasetIndex]] || []);
+        },
+        plugins: {
+          legend: { labels: { font: CHART_DEFAULTS.font, color: CHART_DEFAULTS.color, boxWidth: 12 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtFull$(ctx.raw)}` } },
+        },
+        scales: {
+          x: { grid: { color: CHART_DEFAULTS.border }, ticks: { font: CHART_DEFAULTS.font, color: CHART_DEFAULTS.color } },
+          y: { grid: { color: CHART_DEFAULTS.border }, ticks: { font: CHART_DEFAULTS.font, color: CHART_DEFAULTS.color, callback: v => fmt$(v) } },
+        },
+      },
+    });
+
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [rows]);
+
+  return (
+    <div className={isFullScreen ? undefined : 'chart-card'} style={isFullScreen ? { height: '100%', display: 'flex', flexDirection: 'column' } : undefined}>
+      <div className="chart-title-row">
+        <div>
+          <span style={{ fontFamily:"'Montserrat',sans-serif", fontSize:13, fontWeight:700, color:'var(--text-dark)' }}>Monthly Pipeline Flow</span>
+          <span className="chart-subtitle">Added / Won / Lost · click a bar to drill in</span>
+        </div>
+        {onExpand && <button className="chart-expand-btn" onClick={onExpand} title="Expand">⛶</button>}
+      </div>
+      <div style={{ height: isFullScreen ? '100%' : 240, flex: isFullScreen ? 1 : undefined, position: 'relative' }}>
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
+  );
+}
+
+// ── Open Pipeline by Stage Chart (stacked bar) ────────────────────────────────
+function OpenPipelineChart({ rows, pipeline, selectedStages, openModal, onExpand, isFullScreen }) {
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+  const rowsRef   = useRef(rows);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+
+  // Visible stages (all if none selected, else only selected)
+  const visibleStages = useMemo(() => {
+    if (!pipeline?.stages) return [];
+    return pipeline.stages.filter(s =>
+      selectedStages.size === 0 || selectedStages.has(s.id)
+    );
+  }, [pipeline, selectedStages]);
+
+  useEffect(() => {
+    if (!canvasRef.current || !rows.length || !visibleStages.length) return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    const stageIndexMap = Object.fromEntries(
+      (pipeline?.stages || []).map((s, i) => [s.id, i])
+    );
+
+    const datasets = visibleStages.map(stage => ({
+      label:           stage.label,
+      data:            rows.map(r => r.openAtEndByStage[stage.id]?.amount || 0),
+      backgroundColor: stageColor(stageIndexMap[stage.id] ?? 0),
+      stack:           'open',
+      borderRadius:    2,
+    }));
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: { labels: rows.map(r => r.label), datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+        onClick: (e, els) => {
+          if (!els.length) return;
+          const { datasetIndex, index } = els[0];
+          const row   = rowsRef.current[index];
+          const stage = visibleStages[datasetIndex];
+          if (!row || !stage) return;
+          const bucket = row.openAtEndByStage[stage.id];
+          if (!bucket?.deals?.length) return;
+          openModal(`${stage.label} — ${row.label}`, 'Open deals in this stage at month end', bucket.deals);
+        },
+        plugins: {
+          legend: { labels: { font: CHART_DEFAULTS.font, color: CHART_DEFAULTS.color, boxWidth: 10, padding: 12 } },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${fmtFull$(ctx.raw)}`,
+              footer: items => {
+                const total = items.reduce((s, i) => s + i.raw, 0);
+                return `Total: ${fmtFull$(total)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { stacked: true, grid: { color: CHART_DEFAULTS.border }, ticks: { font: CHART_DEFAULTS.font, color: CHART_DEFAULTS.color } },
+          y: { stacked: true, grid: { color: CHART_DEFAULTS.border }, ticks: { font: CHART_DEFAULTS.font, color: CHART_DEFAULTS.color, callback: v => fmt$(v) } },
+        },
+      },
+    });
+
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [rows, visibleStages]);
+
+  return (
+    <div className={isFullScreen ? undefined : 'chart-card'} style={isFullScreen ? { height: '100%', display: 'flex', flexDirection: 'column' } : undefined}>
+      <div className="chart-title-row">
+        <div>
+          <span style={{ fontFamily:"'Montserrat',sans-serif", fontSize:13, fontWeight:700, color:'var(--text-dark)' }}>Open Pipeline by Stage</span>
+          <span className="chart-subtitle">End of month snapshot · click a segment to drill in</span>
+        </div>
+        {onExpand && <button className="chart-expand-btn" onClick={onExpand} title="Expand">⛶</button>}
+      </div>
+      <div style={{ height: isFullScreen ? '100%' : 260, flex: isFullScreen ? 1 : undefined, position: 'relative' }}>
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
+  );
+}
+
+// ── Monthly Table ─────────────────────────────────────────────────────────────
+function MonthlyTable({ rows, portalId, openModal }) {
+
+  const totals = useMemo(() => rows.reduce((acc, r) => ({
+    added:       acc.added      + r.added,
+    addedCount:  acc.addedCount + r.addedCount,
+    closedWon:   acc.closedWon  + r.closedWon,
+    closedWonCount: acc.closedWonCount + r.closedWonCount,
+    closedLost:  acc.closedLost + r.closedLost,
+    closedLostCount: acc.closedLostCount + r.closedLostCount,
+    netChange:   acc.netChange  + r.netChange,
+  }), { added: 0, addedCount: 0, closedWon: 0, closedWonCount: 0, closedLost: 0, closedLostCount: 0, netChange: 0 }), [rows]);
+
+  return (
+    <>
+      <div className="table-card">
+        <div className="table-header">
+          <span className="table-title">Monthly Breakdown</span>
+          <span className="table-note">Click any amount to see individual deals · Open at end = active pipeline snapshot</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Added</th>
+                <th>Closed Won</th>
+                <th>Closed Lost</th>
+                <th>Net Flow</th>
+                <th>Open at End</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...rows].reverse().map((r, i) => (
+                <tr key={i}>
+                  <td>{r.label}</td>
+                  <td
+                    className={r.addedCount > 0 ? 'clickable' : ''}
+                    onClick={() => openModal(`Added — ${r.label}`, `Deals created this month`, r.addedDeals)}
+                  >
+                    <div>{fmtFull$(r.added)}</div>
+                    {r.addedCount > 0 && <div style={{ fontSize: 11, color: '#7A8FA0' }}>{r.addedCount} deal{r.addedCount !== 1 ? 's' : ''}</div>}
+                  </td>
+                  <td
+                    className={`td-green${r.closedWonCount > 0 ? ' clickable' : ''}`}
+                    onClick={() => openModal(`Closed Won — ${r.label}`, `Deals won this month`, r.closedWonDeals)}
+                  >
+                    <div>{r.closedWon > 0 ? fmtFull$(r.closedWon) : '—'}</div>
+                    {r.closedWonCount > 0 && <div style={{ fontSize: 11, color: '#7A8FA0' }}>{r.closedWonCount} deal{r.closedWonCount !== 1 ? 's' : ''}</div>}
+                  </td>
+                  <td
+                    className={`td-red${r.closedLostCount > 0 ? ' clickable' : ''}`}
+                    onClick={() => openModal(`Closed Lost — ${r.label}`, `Deals lost this month`, r.closedLostDeals)}
+                  >
+                    <div>{r.closedLost > 0 ? fmtFull$(r.closedLost) : '—'}</div>
+                    {r.closedLostCount > 0 && <div style={{ fontSize: 11, color: '#7A8FA0' }}>{r.closedLostCount} deal{r.closedLostCount !== 1 ? 's' : ''}</div>}
+                  </td>
+                  <td className={r.netChange >= 0 ? 'td-net-pos' : 'td-net-neg'}>
+                    {r.netChange >= 0 ? '+' : ''}{fmtFull$(r.netChange)}
+                  </td>
+                  <td
+                    className={`td-coral${r.openAtEndCount > 0 ? ' clickable' : ''}`}
+                    onClick={() => openModal(`Open at End — ${r.label}`, `Deals active at month close`, r.openAtEndDeals)}
+                  >
+                    <div>{fmtFull$(r.openAtEnd)}</div>
+                    {r.openAtEndCount > 0 && <div style={{ fontSize: 11, color: '#7A8FA0' }}>{r.openAtEndCount} deal{r.openAtEndCount !== 1 ? 's' : ''}</div>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td>{fmtFull$(totals.added)} <span style={{ fontSize: 11, color: '#7A8FA0', fontWeight: 400 }}>({totals.addedCount})</span></td>
+                <td style={{ color: C.green }}>{fmtFull$(totals.closedWon)} <span style={{ fontSize: 11, color: '#7A8FA0', fontWeight: 400 }}>({totals.closedWonCount})</span></td>
+                <td style={{ color: C.red }}>{fmtFull$(totals.closedLost)} <span style={{ fontSize: 11, color: '#7A8FA0', fontWeight: 400 }}>({totals.closedLostCount})</span></td>
+                <td style={{ color: totals.netChange >= 0 ? C.green : C.red }}>
+                  {totals.netChange >= 0 ? '+' : ''}{fmtFull$(totals.netChange)}
+                </td>
+                <td>—</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [data,           setData]           = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState(null);
+  const [actionLoading,  setActionLoading]  = useState(null);
+  const [dateRange,      setDateRange]      = useState('all');
+  const [customStart,    setCustomStart]    = useState('');
+  const [customEnd,      setCustomEnd]      = useState('');
+  const [selectedOwners, setSelectedOwners] = useState(new Set());
+  const [selectedStages,  setSelectedStages]  = useState(new Set());
+  const [modal,           setModal]           = useState(null);
+  const [fullScreenChart, setFullScreenChart] = useState(null); // null | 'flow' | 'open'
+
+  function openModal(title, subtitle, deals) {
+    if (!deals?.length) return;
+    setModal({ title, subtitle, deals });
+  }
+
+  // Load data on mount
+  useEffect(() => {
+    fetch('/api/data')
+      .then(r => r.json())
+      .then(d => {
+        if (d.error && !d.deals?.length) setError(d.error);
+        else setData(d);
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function doRefresh(endpoint) {
+    setActionLoading(endpoint);
+    setError(null);
+    try {
+      const r = await fetch(`/api/${endpoint}`, { method: 'POST' });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Unknown error');
+      // Reload data
+      const d = await fetch('/api/data').then(r => r.json());
+      setData(d);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  const rows = useMemo(
+    () => computeMonthlyData(data?.deals, data?.pipeline, selectedOwners, dateRange, customStart, customEnd),
+    [data, selectedOwners, dateRange, customStart, customEnd]
+  );
+
+  const DATE_RANGES = [
+    { key: 'all',    label: 'All Time' },
+    { key: 'ytd',    label: 'YTD'      },
+    { key: '12m',    label: '12M'      },
+    { key: '6m',     label: '6M'       },
+    { key: '3m',     label: '3M'       },
+    { key: 'custom', label: 'Custom'   },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Header */}
+      <header className="header">
+        <div className="header-left">
+          <div>
+            <div className="header-title">Enterprise Pipeline</div>
+            <div className="header-subtitle">Unyte · Enterprise New Sales</div>
+          </div>
+        </div>
+        <img src="/cc-logo.png" alt="Conscientious Consulting" className="header-logo" />
+      </header>
+
+      {/* Main */}
+      <main className="main">
+
+        {/* Error banner */}
+        {error && (
+          <div className="error-banner">
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Toolbar */}
+        <div className="toolbar">
+          {/* Date range */}
+          <div className="toolbar-group">
+            <span className="toolbar-label">Range</span>
+            <div className="range-pills">
+              {DATE_RANGES.map(r => (
+                <button
+                  key={r.key}
+                  className={`range-pill${dateRange === r.key ? ' active' : ''}`}
+                  onClick={() => setDateRange(r.key)}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            {dateRange === 'custom' && (
+              <div className="date-inputs">
+                <input
+                  type="date"
+                  className="date-input"
+                  value={customStart}
+                  onChange={e => setCustomStart(e.target.value)}
+                />
+                <span className="date-sep">→</span>
+                <input
+                  type="date"
+                  className="date-input"
+                  value={customEnd}
+                  onChange={e => setCustomEnd(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="toolbar-sep" />
+
+          {/* Owner filter */}
+          <div className="toolbar-group">
+            <span className="toolbar-label">Owner</span>
+            <OwnerFilter
+              owners={data?.owners || {}}
+              deals={data?.deals || []}
+              selectedOwners={selectedOwners}
+              onChange={setSelectedOwners}
+            />
+          </div>
+
+          <div className="toolbar-sep" />
+
+          {/* Stage filter */}
+          <div className="toolbar-group">
+            <span className="toolbar-label">Stage</span>
+            <StageFilter
+              stages={data?.pipeline?.stages || []}
+              selectedStages={selectedStages}
+              onChange={setSelectedStages}
+            />
+          </div>
+
+          <div className="toolbar-spacer" />
+
+          {/* Refresh controls */}
+          <div className="toolbar-group">
+            <span className="refresh-status">
+              {data?.lastRefreshed ? `Synced ${fmtDateTime(data.lastRefreshed)}` : 'No data loaded'}
+            </span>
+            <button
+              className="btn btn-secondary"
+              disabled={!!actionLoading || loading}
+              onClick={() => doRefresh('sync')}
+            >
+              {actionLoading === 'sync' ? '⟳ Syncing…' : '⟳ Sync New'}
+            </button>
+            <button
+              className="btn btn-coral"
+              disabled={!!actionLoading || loading}
+              onClick={() => doRefresh('refresh')}
+            >
+              {actionLoading === 'refresh' ? '⟳ Loading…' : '↺ Full Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {/* Loading state */}
+        {loading && (
+          <div className="empty-state">
+            <div className="spinner" />
+            <div className="empty-title">Loading…</div>
+          </div>
+        )}
+
+        {/* Empty state — no data yet */}
+        {!loading && !data?.deals?.length && !error && (
+          <div className="empty-state">
+            <div className="empty-icon">📊</div>
+            <div className="empty-title">No data yet</div>
+            <div className="empty-desc">
+              Click <strong>Full Refresh</strong> to pull all deals from the Enterprise New Sales pipeline.
+              Make sure your <code>HUBSPOT_TOKEN</code> is set in <code>.env</code>.
+            </div>
+          </div>
+        )}
+
+        {/* No data error */}
+        {!loading && error && !data?.deals?.length && (
+          <div className="empty-state">
+            <div className="empty-icon">🔌</div>
+            <div className="empty-title">Not connected</div>
+            <div className="empty-desc">{error}</div>
+          </div>
+        )}
+
+        {/* Drill-down modal */}
+        {modal && (
+          <DrillDownModal
+            title={modal.title}
+            subtitle={modal.subtitle}
+            deals={modal.deals}
+            portalId={data?.portalId}
+            owners={data?.owners}
+            pipeline={data?.pipeline}
+            onClose={() => setModal(null)}
+          />
+        )}
+
+        {/* Dashboard */}
+        {!loading && rows.length > 0 && (
+          <>
+            <KPICards rows={rows} openModal={openModal} />
+
+            <div className="charts-row">
+              <PipelineFlowChart rows={rows} openModal={openModal} onExpand={() => setFullScreenChart('flow')} />
+              <OpenPipelineChart rows={rows} pipeline={data?.pipeline} selectedStages={selectedStages} openModal={openModal} onExpand={() => setFullScreenChart('open')} />
+            </div>
+
+            {/* Full-screen chart modals */}
+            {fullScreenChart === 'flow' && (
+              <FullScreenChartModal title="Monthly Pipeline Flow" onClose={() => setFullScreenChart(null)}>
+                <PipelineFlowChart rows={rows} openModal={openModal} isFullScreen />
+              </FullScreenChartModal>
+            )}
+            {fullScreenChart === 'open' && (
+              <FullScreenChartModal title="Open Pipeline by Stage" onClose={() => setFullScreenChart(null)}>
+                <OpenPipelineChart rows={rows} pipeline={data?.pipeline} selectedStages={selectedStages} openModal={openModal} isFullScreen />
+              </FullScreenChartModal>
+            )}
+
+            <MonthlyTable rows={rows} portalId={data?.portalId} openModal={openModal} />
+          </>
+        )}
+
+        {/* Has data but no rows in selected range */}
+        {!loading && data?.deals?.length > 0 && rows.length === 0 && (
+          <div className="empty-state">
+            <div className="empty-icon">🔍</div>
+            <div className="empty-title">No deals in this range</div>
+            <div className="empty-desc">
+              Try expanding the date range or clearing the owner filter.
+            </div>
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

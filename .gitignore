@@ -1,0 +1,6 @@
+.env
+.push-config
+data/
+node_modules/
+.DS_Store
+*.log
