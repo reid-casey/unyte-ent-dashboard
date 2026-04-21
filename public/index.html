@@ -1087,6 +1087,26 @@ function OpenPipelineChart({ rows, pipeline, selectedStages, openModal, onExpand
 // ── Monthly Table ─────────────────────────────────────────────────────────────
 function MonthlyTable({ rows, portalId, openModal }) {
 
+  function exportCSV() {
+    const headers = ['Month','Added','Added Count','Closed Won','Closed Won Count','Closed Lost','Closed Lost Count','Net Flow','Open at End','Open at End Count'];
+    const csvRows = [...rows].reverse().map(r => [
+      r.label,
+      r.added, r.addedCount,
+      r.closedWon, r.closedWonCount,
+      r.closedLost, r.closedLostCount,
+      r.netChange,
+      r.openAtEnd, r.openAtEndCount,
+    ]);
+    const content = [headers, ...csvRows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `unyte-pipeline-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const totals = useMemo(() => rows.reduce((acc, r) => ({
     added:       acc.added      + r.added,
     addedCount:  acc.addedCount + r.addedCount,
@@ -1102,7 +1122,12 @@ function MonthlyTable({ rows, portalId, openModal }) {
       <div className="table-card">
         <div className="table-header">
           <span className="table-title">Monthly Breakdown</span>
-          <span className="table-note">Click any amount to see individual deals · Open at end = active pipeline snapshot</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="table-note">Click any amount to see individual deals · Open at end = active pipeline snapshot</span>
+            <button className="btn btn-secondary" style={{ fontSize: 11, padding: '5px 12px' }} onClick={exportCSV}>
+              ↓ Export CSV
+            </button>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table>
