@@ -313,10 +313,32 @@ function PipelineFlowChart({rows,yoyRows,openModal}){
           datasets.push({label:`_${b.label} ${year}`,data:FLOW_MONTHS.map((_,mi)=>byYear[year]?.[mi]?.[b.key]||0),backgroundColor:hexAlpha(b.color,alpha),stack:String(year),borderRadius:2,_year:year,_bucketIdx:bi});
         });
       });
+      const yoyYearLabelPlugin={
+        id:'yoyYearLabels',
+        afterDraw(chart){
+          const{years:yrs}=chart.config.options.plugins?.yoyYearLabels||{};
+          if(!yrs?.length)return;
+          const ctx=chart.ctx;ctx.save();
+          ctx.font="bold 9px 'Lato', sans-serif";ctx.textAlign='center';ctx.textBaseline='top';
+          const numPts=chart.data.labels.length;
+          const yearDsMap={};
+          chart.data.datasets.forEach((ds,i)=>{if(ds._year!==undefined&&yearDsMap[ds._year]===undefined)yearDsMap[ds._year]=i;});
+          yrs.forEach((year,yi)=>{
+            const di=yearDsMap[year];if(di===undefined)return;
+            const meta=chart.getDatasetMeta(di);
+            const a=yrs.length===1?1:0.4+(yi/(yrs.length-1))*0.6;
+            ctx.fillStyle=`rgba(66,91,118,${a})`;
+            for(let mi=0;mi<numPts;mi++){const bar=meta.data[mi];if(!bar)continue;ctx.fillText(`'${String(year).slice(2)}`,bar.x,chart.scales.x.bottom+4);}
+          });
+          ctx.restore();
+        },
+      };
       chartRef.current=new Chart(canvasRef.current,{
         type:'bar',data:{labels:FLOW_MONTHS,datasets},
+        plugins:[yoyYearLabelPlugin],
         options:{
           responsive:true,maintainAspectRatio:false,
+          layout:{padding:{bottom:18}},
           onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default';},
           onClick:(e,els)=>{
             if(!els.length)return;
@@ -328,7 +350,8 @@ function PipelineFlowChart({rows,yoyRows,openModal}){
             openModal(`${b.label} — ${FLOW_MONTHS[index]} ${ds._year}`,deals);
           },
           plugins:{
-            legend:{labels:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color,boxWidth:12,filter:item=>!item.text.startsWith('_')}},
+            legend:{display:false},
+            yoyYearLabels:{years},
             tooltip:{callbacks:{title:items=>`${FLOW_MONTHS[items[0].dataIndex]}`,label:ctx=>{if(!ctx.raw)return null;return ` ${BUCKET_DEFS[ctx.dataset._bucketIdx].label} ${ctx.dataset._year}: ${fmtFull$(ctx.raw)}`;}}},
           },
           scales:{x:{stacked:true,grid:{color:CHART_DEFAULTS.border},ticks:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color}},y:{stacked:true,grid:{color:CHART_DEFAULTS.border},ticks:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color,callback:v=>fmt$(v)}}},
@@ -349,14 +372,29 @@ function PipelineFlowChart({rows,yoyRows,openModal}){
         </div>
       </div>
       {viewMode==='yoy'&&(
-        <div style={{display:'flex',gap:14,flexWrap:'wrap',marginBottom:8}}>
-          {BUCKET_DEFS.map((b,i)=>(
-            <div key={i} onClick={()=>toggleBucket(i)} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',opacity:hiddenBuckets.has(i)?0.3:1,transition:'opacity .15s',userSelect:'none'}}>
-              <div style={{width:11,height:11,borderRadius:2,background:b.color,flexShrink:0}}/>
-              <span style={{fontSize:11,color:'var(--text-light)',fontFamily:"'Lato',sans-serif"}}>{b.label}</span>
-            </div>
-          ))}
-          <span style={{fontSize:10,color:'var(--text-light)',opacity:.6,alignSelf:'center'}}>click to toggle</span>
+        <div style={{display:'flex',gap:16,flexWrap:'wrap',marginBottom:8,alignItems:'flex-start'}}>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+            <span style={{fontSize:10,fontWeight:700,color:'var(--text-light)',textTransform:'uppercase',letterSpacing:'.5px',fontFamily:"'Montserrat',sans-serif"}}>Metric</span>
+            {BUCKET_DEFS.map((b,i)=>(
+              <div key={i} onClick={()=>toggleBucket(i)} style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',opacity:hiddenBuckets.has(i)?0.3:1,transition:'opacity .15s',userSelect:'none'}}>
+                <div style={{width:10,height:10,borderRadius:2,background:b.color,flexShrink:0}}/>
+                <span style={{fontSize:11,color:'var(--text-light)',fontFamily:"'Lato',sans-serif"}}>{b.label}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{width:1,height:18,background:'var(--border)',alignSelf:'center'}}/>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+            <span style={{fontSize:10,fontWeight:700,color:'var(--text-light)',textTransform:'uppercase',letterSpacing:'.5px',fontFamily:"'Montserrat',sans-serif"}}>Year</span>
+            {yoyData.years.map((year,yi)=>{
+              const alpha=yoyData.years.length===1?1:0.35+(yi/(yoyData.years.length-1))*0.65;
+              return(
+                <div key={year} style={{display:'flex',alignItems:'center',gap:4}}>
+                  <div style={{width:10,height:10,borderRadius:2,background:`rgba(66,91,118,${alpha})`,flexShrink:0}}/>
+                  <span style={{fontSize:11,color:'var(--text-light)',fontFamily:"'Lato',sans-serif"}}>{year}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
       <div className="chart-canvas-wrap"><canvas ref={canvasRef}/></div>

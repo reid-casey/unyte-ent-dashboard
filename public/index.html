@@ -1041,9 +1041,9 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
       years.forEach((year, yi) => {
         const alpha = years.length === 1 ? 1 : 0.35 + (yi / (years.length - 1)) * 0.65;
         BUCKET_DEFS.forEach((b, bi) => {
-          if (hiddenBuckets.has(bi)) return; // skip toggled-off metrics
+          if (hiddenBuckets.has(bi)) return;
           datasets.push({
-            label:           `_${b.label} ${year}`, // all hidden from legend (custom legend below)
+            label:           `_${b.label} ${year}`,
             data:            FLOW_MONTHS.map((_, mi) => byYear[year]?.[mi]?.[b.key] || 0),
             backgroundColor: hexAlpha(b.color, alpha),
             stack:           String(year),
@@ -1054,11 +1054,46 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
         });
       });
 
+      // Plugin: draw year labels below each bar group
+      const yoyYearLabelPlugin = {
+        id: 'yoyYearLabels',
+        afterDraw(chart) {
+          const { years: yrs } = chart.config.options.plugins?.yoyYearLabels || {};
+          if (!yrs?.length) return;
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.font = "bold 9px 'Lato', sans-serif";
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          const numPts = chart.data.labels.length;
+          // Map each year to its first visible dataset index
+          const yearDsMap = {};
+          chart.data.datasets.forEach((ds, i) => {
+            if (ds._year !== undefined && yearDsMap[ds._year] === undefined) yearDsMap[ds._year] = i;
+          });
+          yrs.forEach((year, yi) => {
+            const di = yearDsMap[year];
+            if (di === undefined) return;
+            const meta = chart.getDatasetMeta(di);
+            const a = yrs.length === 1 ? 1 : 0.4 + (yi / (yrs.length - 1)) * 0.6;
+            ctx.fillStyle = `rgba(66,91,118,${a})`;
+            for (let mi = 0; mi < numPts; mi++) {
+              const bar = meta.data[mi];
+              if (!bar) continue;
+              ctx.fillText(`'${String(year).slice(2)}`, bar.x, chart.scales.x.bottom + 4);
+            }
+          });
+          ctx.restore();
+        },
+      };
+
       chartRef.current = new Chart(canvasRef.current, {
         type: 'bar',
         data: { labels: FLOW_MONTHS, datasets },
+        plugins: [yoyYearLabelPlugin],
         options: {
           responsive: true, maintainAspectRatio: false,
+          layout: { padding: { bottom: 18 } },
           onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
           onClick: (e, els) => {
             if (!els.length) return;
@@ -1072,12 +1107,8 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
             openModal(`${b.label} — ${FLOW_MONTHS[index]} ${ds._year}`, '', deals);
           },
           plugins: {
-            legend: {
-              labels: {
-                font: CHART_DEFAULTS.font, color: CHART_DEFAULTS.color, boxWidth: 12,
-                filter: item => !item.text.startsWith('_'),
-              },
-            },
+            legend: { display: false },
+            yoyYearLabels: { years },
             tooltip: {
               callbacks: {
                 title: items => `${FLOW_MONTHS[items[0].dataIndex]}`,
@@ -1123,20 +1154,34 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
         </div>
         {onExpand && <button className="chart-expand-btn" onClick={onExpand} title="Expand">⛶</button>}
       </div>
-      {/* Custom metric legend for YoY mode */}
+      {/* Custom legend for YoY mode — metrics (clickable) + year key */}
       {viewMode === 'yoy' && (
-        <div style={{ display:'flex', gap:14, flexWrap:'wrap', marginBottom:10 }}>
-          {BUCKET_DEFS.map((b, i) => (
-            <div
-              key={i}
-              onClick={() => toggleBucket(i)}
-              style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', opacity: hiddenBuckets.has(i) ? 0.3 : 1, transition:'opacity .15s', userSelect:'none' }}
-            >
-              <div style={{ width:12, height:12, borderRadius:2, background:b.color, flexShrink:0 }} />
-              <span style={{ fontSize:11, color:'var(--text-light)', fontFamily:"'Lato',sans-serif" }}>{b.label}</span>
-            </div>
-          ))}
-          <span style={{ fontSize:10, color:'var(--text-light)', marginLeft:4, alignSelf:'center', opacity:.6 }}>click to toggle</span>
+        <div style={{ display:'flex', gap:20, flexWrap:'wrap', marginBottom:10, alignItems:'flex-start' }}>
+          {/* Metric toggles */}
+          <div style={{ display:'flex', gap:12, flexWrap:'wrap', alignItems:'center' }}>
+            <span style={{ fontSize:10, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'.5px', fontFamily:"'Montserrat',sans-serif" }}>Metric</span>
+            {BUCKET_DEFS.map((b, i) => (
+              <div key={i} onClick={() => toggleBucket(i)}
+                style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', opacity: hiddenBuckets.has(i) ? 0.3 : 1, transition:'opacity .15s', userSelect:'none' }}>
+                <div style={{ width:11, height:11, borderRadius:2, background:b.color, flexShrink:0 }} />
+                <span style={{ fontSize:11, color:'var(--text-light)', fontFamily:"'Lato',sans-serif" }}>{b.label}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ width:1, height:20, background:'var(--border)', alignSelf:'center' }} />
+          {/* Year key */}
+          <div style={{ display:'flex', gap:12, flexWrap:'wrap', alignItems:'center' }}>
+            <span style={{ fontSize:10, fontWeight:700, color:'var(--text-light)', textTransform:'uppercase', letterSpacing:'.5px', fontFamily:"'Montserrat',sans-serif" }}>Year</span>
+            {yoyData.years.map((year, yi) => {
+              const alpha = yoyData.years.length === 1 ? 1 : 0.35 + (yi / (yoyData.years.length - 1)) * 0.65;
+              return (
+                <div key={year} style={{ display:'flex', alignItems:'center', gap:5 }}>
+                  <div style={{ width:11, height:11, borderRadius:2, background:`rgba(66,91,118,${alpha})`, flexShrink:0 }} />
+                  <span style={{ fontSize:11, color:'var(--text-light)', fontFamily:"'Lato',sans-serif" }}>{year}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
       <div style={{ height: isFullScreen ? '100%' : 240, flex: isFullScreen ? 1 : undefined, position: 'relative' }}>
