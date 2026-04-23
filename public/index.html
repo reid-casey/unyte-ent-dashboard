@@ -1080,6 +1080,9 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
             for (let mi = 0; mi < numPts; mi++) {
               const bar = meta.data[mi];
               if (!bar) continue;
+              // Only label if this year has any data for this month
+              const hasData = chart.data.datasets.some(ds => ds._year === year && (ds.data[mi] || 0) > 0);
+              if (!hasData) continue;
               ctx.fillText(`'${String(year).slice(2)}`, bar.x, chart.scales.x.bottom + 4);
             }
           });

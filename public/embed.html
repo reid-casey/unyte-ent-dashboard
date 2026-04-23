@@ -328,7 +328,7 @@ function PipelineFlowChart({rows,yoyRows,openModal}){
             const meta=chart.getDatasetMeta(di);
             const a=yrs.length===1?1:0.4+(yi/(yrs.length-1))*0.6;
             ctx.fillStyle=`rgba(66,91,118,${a})`;
-            for(let mi=0;mi<numPts;mi++){const bar=meta.data[mi];if(!bar)continue;ctx.fillText(`'${String(year).slice(2)}`,bar.x,chart.scales.x.bottom+4);}
+            for(let mi=0;mi<numPts;mi++){const bar=meta.data[mi];if(!bar)continue;const hasData=chart.data.datasets.some(ds=>ds._year===year&&(ds.data[mi]||0)>0);if(!hasData)continue;ctx.fillText(`'${String(year).slice(2)}`,bar.x,chart.scales.x.bottom+4);}
           });
           ctx.restore();
         },
