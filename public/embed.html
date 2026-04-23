@@ -201,6 +201,11 @@ function DrillDownModal({title,deals,portalId,owners,pipeline,onClose}){
   const filtered=q?sorted.filter(d=>{const o=(d.ownerId&&owners?.[d.ownerId])||{};return d.name.toLowerCase().includes(q)||(o.firstName||'').toLowerCase().includes(q)||(o.lastName||'').toLowerCase().includes(q);}):sorted;
   const total=deals.reduce((s,d)=>s+(d.amount||0),0);
   const hsUrl=id=>portalId?`https://app.hubspot.com/contacts/${portalId}/record/0-3/${id}`:`https://app.hubspot.com/contacts/record/0-3/${id}`;
+  function exportCSV(){
+    const rows=[['Deal Name','Owner','Close Date','Stage','Amount']];
+    filtered.forEach(d=>{const owner=(d.ownerId&&owners?.[d.ownerId]?.name)||'Unassigned';const stage=stageMap[d.stageId]||'—';const date=d.closedate?new Date(d.closedate).toLocaleDateString('en-US'):'—';rows.push([`"${(d.name||'').replace(/"/g,'""')}"`,owner,date,stage,d.amount||0]);});
+    const csv=rows.map(r=>r.join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`deals-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);
+  }
   return(
     <div className="modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div className="modal">
@@ -209,7 +214,10 @@ function DrillDownModal({title,deals,portalId,owners,pipeline,onClose}){
             <div className="modal-title">{title}</div>
             <div className="modal-subtitle">{deals.length} deal{deals.length!==1?'s':''} · {fmtFull$(total)}</div>
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <button onClick={exportCSV} style={{fontSize:11,padding:'4px 10px',border:'1px solid var(--border)',borderRadius:7,background:'var(--white)',cursor:'pointer',fontFamily:"'Montserrat',sans-serif",fontWeight:600,color:'var(--slate)'}}>↓ CSV</button>
+            <button className="modal-close" onClick={onClose}>×</button>
+          </div>
         </div>
         <div className="modal-search-wrap">
           <input className="modal-search-input" type="text" placeholder="Search deals…" value={search} onChange={e=>setSearch(e.target.value)} autoFocus />
@@ -269,7 +277,9 @@ function OwnerFilter({owners,deals,selectedOwners,onChange}){
 // ── Chart ─────────────────────────────────────────────────────────────────────
 function PipelineFlowChart({rows,yoyRows,openModal}){
   const [viewMode,setViewMode]=useState('timeline');
+  const [hiddenBuckets,setHiddenBuckets]=useState(new Set());
   const canvasRef=useRef(null);const chartRef=useRef(null);
+  function toggleBucket(idx){setHiddenBuckets(prev=>{const next=new Set(prev);next.has(idx)?next.delete(idx):next.add(idx);return next;});}
   const yoyData=useMemo(()=>{const source=yoyRows||rows;const byYear={};for(const row of source){const yr=row.month.getFullYear(),mo=row.month.getMonth();if(!byYear[yr])byYear[yr]={};byYear[yr][mo]=row;}return{byYear,years:Object.keys(byYear).map(Number).sort()};},[yoyRows,rows]);
 
   useEffect(()=>{
@@ -298,7 +308,10 @@ function PipelineFlowChart({rows,yoyRows,openModal}){
       const{byYear,years}=yoyData;const datasets=[];
       years.forEach((year,yi)=>{
         const alpha=years.length===1?1:0.35+(yi/(years.length-1))*0.65;
-        BUCKET_DEFS.forEach((b,bi)=>{datasets.push({label:bi===0?`'${String(year).slice(2)}`:`_${b.label} ${year}`,data:FLOW_MONTHS.map((_,mi)=>byYear[year]?.[mi]?.[b.key]||0),backgroundColor:hexAlpha(b.color,alpha),stack:String(year),borderRadius:2,_year:year,_bucketIdx:bi});});
+        BUCKET_DEFS.forEach((b,bi)=>{
+          if(hiddenBuckets.has(bi))return;
+          datasets.push({label:`_${b.label} ${year}`,data:FLOW_MONTHS.map((_,mi)=>byYear[year]?.[mi]?.[b.key]||0),backgroundColor:hexAlpha(b.color,alpha),stack:String(year),borderRadius:2,_year:year,_bucketIdx:bi});
+        });
       });
       chartRef.current=new Chart(canvasRef.current,{
         type:'bar',data:{labels:FLOW_MONTHS,datasets},
@@ -323,7 +336,7 @@ function PipelineFlowChart({rows,yoyRows,openModal}){
       });
     }
     return()=>{if(chartRef.current){chartRef.current.destroy();chartRef.current=null;}};
-  },[rows,yoyRows,viewMode]);
+  },[rows,yoyRows,viewMode,hiddenBuckets]);
 
   return(
     <div className="chart-card">
@@ -335,6 +348,17 @@ function PipelineFlowChart({rows,yoyRows,openModal}){
           <button className={`range-pill${viewMode==='yoy'?' active':''}`} style={{fontSize:10,padding:'2px 8px'}} onClick={()=>setViewMode('yoy')}>YoY</button>
         </div>
       </div>
+      {viewMode==='yoy'&&(
+        <div style={{display:'flex',gap:14,flexWrap:'wrap',marginBottom:8}}>
+          {BUCKET_DEFS.map((b,i)=>(
+            <div key={i} onClick={()=>toggleBucket(i)} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',opacity:hiddenBuckets.has(i)?0.3:1,transition:'opacity .15s',userSelect:'none'}}>
+              <div style={{width:11,height:11,borderRadius:2,background:b.color,flexShrink:0}}/>
+              <span style={{fontSize:11,color:'var(--text-light)',fontFamily:"'Lato',sans-serif"}}>{b.label}</span>
+            </div>
+          ))}
+          <span style={{fontSize:10,color:'var(--text-light)',opacity:.6,alignSelf:'center'}}>click to toggle</span>
+        </div>
+      )}
       <div className="chart-canvas-wrap"><canvas ref={canvasRef}/></div>
     </div>
   );

@@ -805,6 +805,22 @@ function DrillDownModal({ title, subtitle, deals, portalId, owners, pipeline, on
     : sorted;
   const total    = deals.reduce((s, d) => s + (d.amount || 0), 0);
 
+  function exportCSV() {
+    const rows = [['Deal Name','Owner','Close Date','Stage','Amount']];
+    filtered.forEach(d => {
+      const owner = (d.ownerId && owners?.[d.ownerId]?.name) || 'Unassigned';
+      const stage = stageMap[d.stageId] || '—';
+      const date  = d.closedate ? new Date(d.closedate).toLocaleDateString('en-US') : '—';
+      rows.push([`"${(d.name||'').replace(/"/g,'""')}"`, owner, date, stage, d.amount || 0]);
+    });
+    const csv  = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `deals-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal">
@@ -813,7 +829,10 @@ function DrillDownModal({ title, subtitle, deals, portalId, owners, pipeline, on
             <div className="modal-title">{title}</div>
             <div className="modal-subtitle">{deals.length} deal{deals.length !== 1 ? 's' : ''} · {fmtFull$(total)}</div>
           </div>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <button className="btn btn-secondary" style={{ fontSize:11, padding:'4px 10px' }} onClick={exportCSV}>↓ CSV</button>
+            <button className="modal-close" onClick={onClose}>×</button>
+          </div>
         </div>
         <div className="modal-search-wrap">
           <input
@@ -947,11 +966,20 @@ function hexAlpha(hex, a) {
 }
 
 function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen }) {
-  const [viewMode, setViewMode] = useState('timeline'); // 'timeline' | 'yoy'
+  const [viewMode,      setViewMode]      = useState('timeline'); // 'timeline' | 'yoy'
+  const [hiddenBuckets, setHiddenBuckets] = useState(new Set());
   const canvasRef  = useRef(null);
   const chartRef   = useRef(null);
   const rowsRef    = useRef(rows);
   useEffect(() => { rowsRef.current = rows; }, [rows]);
+
+  function toggleBucket(idx) {
+    setHiddenBuckets(prev => {
+      const next = new Set(prev);
+      next.has(idx) ? next.delete(idx) : next.add(idx);
+      return next;
+    });
+  }
 
   // Build YoY lookup from allTimeRows so date filter doesn't affect it
   const yoyData = useMemo(() => {
@@ -1011,11 +1039,11 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
       const datasets = [];
 
       years.forEach((year, yi) => {
-        // Opacity: oldest = 0.35, newest = 1.0
         const alpha = years.length === 1 ? 1 : 0.35 + (yi / (years.length - 1)) * 0.65;
         BUCKET_DEFS.forEach((b, bi) => {
+          if (hiddenBuckets.has(bi)) return; // skip toggled-off metrics
           datasets.push({
-            label:           bi === 0 ? `'${String(year).slice(2)}` : `_${b.label} ${year}`,
+            label:           `_${b.label} ${year}`, // all hidden from legend (custom legend below)
             data:            FLOW_MONTHS.map((_, mi) => byYear[year]?.[mi]?.[b.key] || 0),
             backgroundColor: hexAlpha(b.color, alpha),
             stack:           String(year),
@@ -1070,7 +1098,7 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
     }
 
     return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [rows, yoyRows, viewMode]);
+  }, [rows, yoyRows, viewMode, hiddenBuckets]);
 
   return (
     <div className={isFullScreen ? undefined : 'chart-card'} style={isFullScreen ? { height: '100%', display: 'flex', flexDirection: 'column' } : undefined}>
@@ -1095,6 +1123,22 @@ function PipelineFlowChart({ rows, yoyRows, openModal, onExpand, isFullScreen })
         </div>
         {onExpand && <button className="chart-expand-btn" onClick={onExpand} title="Expand">⛶</button>}
       </div>
+      {/* Custom metric legend for YoY mode */}
+      {viewMode === 'yoy' && (
+        <div style={{ display:'flex', gap:14, flexWrap:'wrap', marginBottom:10 }}>
+          {BUCKET_DEFS.map((b, i) => (
+            <div
+              key={i}
+              onClick={() => toggleBucket(i)}
+              style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', opacity: hiddenBuckets.has(i) ? 0.3 : 1, transition:'opacity .15s', userSelect:'none' }}
+            >
+              <div style={{ width:12, height:12, borderRadius:2, background:b.color, flexShrink:0 }} />
+              <span style={{ fontSize:11, color:'var(--text-light)', fontFamily:"'Lato',sans-serif" }}>{b.label}</span>
+            </div>
+          ))}
+          <span style={{ fontSize:10, color:'var(--text-light)', marginLeft:4, alignSelf:'center', opacity:.6 }}>click to toggle</span>
+        </div>
+      )}
       <div style={{ height: isFullScreen ? '100%' : 240, flex: isFullScreen ? 1 : undefined, position: 'relative' }}>
         <canvas ref={canvasRef} />
       </div>
