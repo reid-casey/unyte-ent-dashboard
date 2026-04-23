@@ -32,7 +32,7 @@ fi
 
 TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 git add -A
-git commit -m "Deploy: $TIMESTAMP"
+git commit --allow-empty -m "Deploy: $TIMESTAMP"
 git push -u origin main
 
 echo ""
