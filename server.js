@@ -450,6 +450,9 @@ app.post('/api/sync', async (req, res) => {
 });
 
 // ─── Static files ─────────────────────────────────────────────────────────────
+app.get('/embed', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'embed.html'));
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Start ────────────────────────────────────────────────────────────────────
