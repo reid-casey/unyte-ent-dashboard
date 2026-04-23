@@ -214,7 +214,7 @@ async function fetchOwners() {
   let   cursor = undefined;
 
   while (true) {
-    const params = { limit: 100 };
+    const params = { limit: 100, includeDeactivated: true };
     if (cursor) params.after = cursor;
     const res = await hsGet('/crm/v3/owners', { params });
 
