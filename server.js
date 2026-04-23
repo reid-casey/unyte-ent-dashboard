@@ -310,6 +310,9 @@ function parseCookies(header = '') {
 function authMiddleware(req, res, next) {
   if (!APP_PASSWORD) return next();
   if (req.path === '/__login') return next();
+  // Embed page and its data endpoint are always public
+  if (req.path === '/embed' || req.path === '/embed.html') return next();
+  if (req.path === '/api/embed-data') return next();
   const cookies = parseCookies(req.headers.cookie);
   if (cookies['session'] === SESSION_TOKEN) return next();
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
@@ -364,6 +367,14 @@ app.post('/__login', (req, res) => {
 app.get('/api/data', (req, res) => {
   if (!cache) {
     return res.json({ error: 'No data yet — click Full Refresh to load from HubSpot.', deals: [], owners: {}, pipeline: null, lastRefreshed: null });
+  }
+  res.json(cache);
+});
+
+// Public endpoint for embedded views (no auth required)
+app.get('/api/embed-data', (req, res) => {
+  if (!cache) {
+    return res.json({ error: 'No data yet', deals: [], owners: {}, pipeline: null, lastRefreshed: null });
   }
   res.json(cache);
 });

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pipeline Flow — Unyte</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Montserrat:wght@400;500;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --coral:      #D96B4F;
+      --slate:      #425B76;
+      --slate-deep: #1E2D3D;
+      --green:      #3DAA6E;
+      --red:        #C0392B;
+      --text-dark:  #1E2A35;
+      --text-mid:   #4A5A6A;
+      --text-light: #7A8FA0;
+      --border:     #DDE3E9;
+      --bg:         #F2F5F8;
+      --white:      #FFFFFF;
+    }
+    html, body { height: 100%; background: var(--bg); font-family: 'Lato', sans-serif; color: var(--text-dark); }
+
+    .wrap { padding: 16px; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 16px; margin-bottom: 16px;
+    }
+    .toolbar-label {
+      font-size: 11px; font-weight: 700; color: var(--text-light);
+      text-transform: uppercase; letter-spacing: .5px; white-space: nowrap;
+      font-family: 'Montserrat', sans-serif;
+    }
+    .toolbar-sep { width: 1px; height: 24px; background: var(--border); }
+
+    /* Pills */
+    .range-pills { display: flex; gap: 4px; }
+    .range-pill {
+      padding: 4px 10px; border-radius: 20px; font-size: 11px;
+      font-weight: 600; font-family: 'Montserrat', sans-serif;
+      cursor: pointer; border: 1px solid var(--border);
+      background: var(--white); color: var(--text-mid); transition: all .15s;
+    }
+    .range-pill:hover { border-color: var(--slate); color: var(--slate); }
+    .range-pill.active { background: var(--slate-deep); border-color: var(--slate-deep); color: #fff; }
+
+    /* Date inputs */
+    .date-inputs { display: flex; align-items: center; gap: 6px; }
+    .date-input {
+      padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 11px; font-family: 'Lato', sans-serif; outline: none;
+    }
+    .date-input:focus { border-color: var(--slate); }
+    .date-sep { font-size: 11px; color: var(--text-light); }
+
+    /* Owner filter */
+    .owner-filter { position: relative; }
+    .owner-btn {
+      display: flex; align-items: center; gap: 6px; padding: 5px 10px;
+      border: 1px solid var(--border); border-radius: 8px; background: var(--white);
+      font-size: 11px; font-weight: 600; font-family: 'Montserrat', sans-serif;
+      cursor: pointer; color: var(--text-mid); white-space: nowrap;
+    }
+    .owner-btn.has-filter { border-color: var(--slate); color: var(--slate); background: #EEF2F7; }
+    .owner-dropdown {
+      position: absolute; top: calc(100% + 6px); left: 0;
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      padding: 8px; min-width: 200px; z-index: 100;
+      max-height: 260px; overflow-y: auto;
+    }
+    .owner-option {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+    }
+    .owner-option:hover { background: var(--bg); }
+    .owner-option input[type="checkbox"] { accent-color: var(--slate); }
+    .owner-clear { font-size: 11px; color: var(--coral); cursor: pointer; padding: 5px 10px; font-weight: 600; }
+    .owner-clear:hover { text-decoration: underline; }
+
+    /* Chart */
+    .chart-card {
+      background: var(--white); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 20px;
+    }
+    .chart-title-row {
+      display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px;
+    }
+    .chart-title { font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-dark); }
+    .chart-subtitle { font-size: 11px; color: var(--text-light); font-weight: 400; margin-left: 6px; }
+
+    /* Spinner */
+    .spinner {
+      width: 28px; height: 28px; border: 3px solid var(--border);
+      border-top-color: var(--slate); border-radius: 50%;
+      animation: spin .7s linear infinite; margin: 40px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const C = { slate:'#425B76', deep:'#1E2D3D', coral:'#D96B4F', green:'#3DAA6E', red:'#C0392B' };
+const CHART_DEFAULTS = { font: { family:"'Lato',sans-serif", size:11 }, color:'#7A8FA0', border:'#DDE3E9' };
+const FLOW_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const BUCKET_DEFS = [
+  { key:'added',      dealsKey:'addedDeals',      label:'Added',       color: C.slate },
+  { key:'closedWon',  dealsKey:'closedWonDeals',  label:'Won',         color: C.green },
+  { key:'closedLost', dealsKey:'closedLostDeals', label:'Lost',        color: C.red   },
+  { key:'openAtEnd',  dealsKey:'openAtEndDeals',  label:'Open at End', color: C.coral },
+];
+
+function hexAlpha(hex, a) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+function fmt$(n) {
+  if (!n && n!==0) return '—';
+  const abs=Math.abs(n), sign=n<0?'-':'';
+  if (abs>=1e6) return `${sign}$${(abs/1e6).toFixed(1)}M`;
+  if (abs>=1e3) return `${sign}$${(abs/1e3).toFixed(0)}K`;
+  return `${sign}$${abs.toLocaleString()}`;
+}
+function fmtFull$(n) {
+  if (!n && n!==0) return '—';
+  return (n<0?'-$':'$')+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+function fmtMonth(d) { return d.toLocaleDateString('en-US',{month:'short',year:'2-digit'}); }
+
+function computeMonthlyData(deals, pipeline, selectedOwners, dateRange, customStart, customEnd) {
+  if (!deals?.length || !pipeline) return [];
+  const filtered = selectedOwners.size===0 ? deals : deals.filter(d=>selectedOwners.has(d.ownerId));
+  if (!filtered.length) return [];
+  const now = new Date();
+  let rangeStart, rangeEnd=now;
+  switch(dateRange) {
+    case '3m':     rangeStart=new Date(now.getFullYear(),now.getMonth()-2,1); break;
+    case '6m':     rangeStart=new Date(now.getFullYear(),now.getMonth()-5,1); break;
+    case '12m':    rangeStart=new Date(now.getFullYear(),now.getMonth()-11,1); break;
+    case 'ytd':    rangeStart=new Date(now.getFullYear(),0,1); break;
+    case 'custom':
+      rangeStart=customStart?new Date(customStart):new Date(now.getFullYear(),0,1);
+      rangeEnd=customEnd?new Date(customEnd):now; break;
+    default: {
+      const earliest=filtered.reduce((min,d)=>{const t=new Date(d.createdate).getTime();return t<min?t:min;},Date.now());
+      const e=new Date(earliest);
+      rangeStart=new Date(e.getFullYear(),e.getMonth(),1);
+    }
+  }
+  const months=[];
+  let cur=new Date(rangeStart.getFullYear(),rangeStart.getMonth(),1);
+  const endCap=new Date(rangeEnd.getFullYear(),rangeEnd.getMonth(),1);
+  while(cur<=endCap){months.push(new Date(cur));cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  return months.map(monthStart=>{
+    const monthEnd=new Date(monthStart.getFullYear(),monthStart.getMonth()+1,0,23,59,59,999);
+    const msEnd=monthEnd.getTime(), msStart=monthStart.getTime();
+    let added=0,addedCount=0,addedDeals=[];
+    let closedWon=0,closedWonCount=0,closedWonDeals=[];
+    let closedLost=0,closedLostCount=0,closedLostDeals=[];
+    let openAtEnd=0,openAtEndCount=0,openAtEndDeals=[];
+    for(const deal of filtered){
+      const amount=deal.amount||0;
+      const createTs=new Date(deal.createdate).getTime();
+      const cwTs=deal.closedWonDate?new Date(deal.closedWonDate).getTime():null;
+      const clTs=deal.closedLostDate?new Date(deal.closedLostDate).getTime():null;
+      const closedate=deal.closedate||deal.closedWonDate||deal.closedLostDate||null;
+      const ref={id:deal.id,name:deal.name,amount,stageId:deal.currentStage,ownerId:deal.ownerId,closedate};
+      if(createTs>=msStart&&createTs<=msEnd){added+=amount;addedCount++;addedDeals.push(ref);}
+      if(cwTs&&cwTs>=msStart&&cwTs<=msEnd){closedWon+=amount;closedWonCount++;closedWonDeals.push(ref);}
+      if(clTs&&clTs>=msStart&&clTs<=msEnd){closedLost+=amount;closedLostCount++;closedLostDeals.push(ref);}
+      if(createTs<=msEnd){
+        const isOpen=(!cwTs||cwTs>msEnd)&&(!clTs||clTs>msEnd);
+        if(isOpen){openAtEnd+=amount;openAtEndCount++;openAtEndDeals.push(ref);}
+      }
+    }
+    return {month:monthStart,label:fmtMonth(monthStart),added,addedCount,addedDeals,closedWon,closedWonCount,closedWonDeals,closedLost,closedLostCount,closedLostDeals,openAtEnd,openAtEndCount,openAtEndDeals};
+  });
+}
+
+function OwnerFilter({ owners, deals, selectedOwners, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(()=>{
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
+    document.addEventListener('mousedown',h);
+    return()=>document.removeEventListener('mousedown',h);
+  },[]);
+  const pipelineOwnerIds=useMemo(()=>{const ids=new Set();for(const d of deals||[]){if(d.ownerId)ids.add(d.ownerId);}return ids;},[deals]);
+  const ownerList=Object.values(owners||{}).filter(o=>pipelineOwnerIds.has(o.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  const hasFilter=selectedOwners.size>0;
+  const label=hasFilter?selectedOwners.size===1?(ownerList.find(o=>selectedOwners.has(o.id))?.name||'Owner'):`${selectedOwners.size} owners`:'All owners';
+  function toggle(id){const next=new Set(selectedOwners);next.has(id)?next.delete(id):next.add(id);onChange(next);}
+  return (
+    <div className="owner-filter" ref={ref}>
+      <button className={`owner-btn${hasFilter?' has-filter':''}`} onClick={()=>setOpen(v=>!v)}>
+        <span>👤</span><span>{label}</span><span style={{opacity:.5}}>▾</span>
+      </button>
+      {open&&(
+        <div className="owner-dropdown">
+          {hasFilter&&<div className="owner-clear" onClick={()=>onChange(new Set())}>Clear filter</div>}
+          {ownerList.map(o=>(
+            <label key={o.id} className="owner-option">
+              <input type="checkbox" checked={selectedOwners.has(o.id)} onChange={()=>toggle(o.id)} />
+              <span>{o.name}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PipelineFlowChart({ rows, yoyRows }) {
+  const [viewMode, setViewMode] = useState('timeline');
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+
+  const yoyData = useMemo(()=>{
+    const source=yoyRows||rows;
+    const byYear={};
+    for(const row of source){
+      const yr=row.month.getFullYear(), mo=row.month.getMonth();
+      if(!byYear[yr])byYear[yr]={};
+      byYear[yr][mo]=row;
+    }
+    return{byYear,years:Object.keys(byYear).map(Number).sort()};
+  },[yoyRows,rows]);
+
+  useEffect(()=>{
+    if(!canvasRef.current||!rows.length)return;
+    if(chartRef.current)chartRef.current.destroy();
+    if(viewMode==='timeline'){
+      chartRef.current=new Chart(canvasRef.current,{
+        type:'bar',
+        data:{labels:rows.map(r=>r.label),datasets:BUCKET_DEFS.map(b=>({label:b.label,data:rows.map(r=>r[b.key]),backgroundColor:b.color,borderRadius:3}))},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{labels:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color,boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmtFull$(ctx.raw)}`}}},
+          scales:{x:{grid:{color:CHART_DEFAULTS.border},ticks:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color}},y:{grid:{color:CHART_DEFAULTS.border},ticks:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color,callback:v=>fmt$(v)}}},
+        },
+      });
+    } else {
+      const {byYear,years}=yoyData;
+      const datasets=[];
+      years.forEach((year,yi)=>{
+        const alpha=years.length===1?1:0.35+(yi/(years.length-1))*0.65;
+        BUCKET_DEFS.forEach((b,bi)=>{
+          datasets.push({label:bi===0?`'${String(year).slice(2)}`:`_${b.label} ${year}`,data:FLOW_MONTHS.map((_,mi)=>byYear[year]?.[mi]?.[b.key]||0),backgroundColor:hexAlpha(b.color,alpha),stack:String(year),borderRadius:2,_year:year,_bucketIdx:bi});
+        });
+      });
+      chartRef.current=new Chart(canvasRef.current,{
+        type:'bar',
+        data:{labels:FLOW_MONTHS,datasets},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{
+            legend:{labels:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color,boxWidth:12,filter:item=>!item.text.startsWith('_')}},
+            tooltip:{callbacks:{title:items=>`${FLOW_MONTHS[items[0].dataIndex]}`,label:ctx=>{if(!ctx.raw)return null;return ` ${BUCKET_DEFS[ctx.dataset._bucketIdx].label} ${ctx.dataset._year}: ${fmtFull$(ctx.raw)}`;}}},
+          },
+          scales:{x:{stacked:true,grid:{color:CHART_DEFAULTS.border},ticks:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color}},y:{stacked:true,grid:{color:CHART_DEFAULTS.border},ticks:{font:CHART_DEFAULTS.font,color:CHART_DEFAULTS.color,callback:v=>fmt$(v)}}},
+        },
+      });
+    }
+    return()=>{if(chartRef.current){chartRef.current.destroy();chartRef.current=null;}};
+  },[rows,yoyRows,viewMode]);
+
+  return (
+    <div className="chart-card">
+      <div className="chart-title-row">
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div>
+            <span className="chart-title">Monthly Pipeline Flow</span>
+            <span className="chart-subtitle">{viewMode==='yoy'?'Year-over-year by month':'Added / Won / Lost / Open'}</span>
+          </div>
+          <div style={{display:'flex',gap:3}}>
+            <button className={`range-pill${viewMode==='timeline'?' active':''}`} style={{fontSize:10,padding:'3px 9px'}} onClick={()=>setViewMode('timeline')}>Timeline</button>
+            <button className={`range-pill${viewMode==='yoy'?' active':''}`} style={{fontSize:10,padding:'3px 9px'}} onClick={()=>setViewMode('yoy')}>YoY</button>
+          </div>
+        </div>
+      </div>
+      <div style={{height:280,position:'relative'}}>
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [data,           setData]           = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [dateRange,      setDateRange]      = useState('all');
+  const [customStart,    setCustomStart]    = useState('');
+  const [customEnd,      setCustomEnd]      = useState('');
+  const [selectedOwners, setSelectedOwners] = useState(new Set());
+
+  useEffect(()=>{
+    fetch('/api/embed-data').then(r=>r.json()).then(d=>{if(d.deals?.length)setData(d);}).finally(()=>setLoading(false));
+  },[]);
+
+  const rows = useMemo(()=>computeMonthlyData(data?.deals,data?.pipeline,selectedOwners,dateRange,customStart,customEnd),[data,selectedOwners,dateRange,customStart,customEnd]);
+  const allTimeRows = useMemo(()=>computeMonthlyData(data?.deals,data?.pipeline,selectedOwners,'all','',''),[data,selectedOwners]);
+
+  const DATE_RANGES=[{key:'all',label:'All Time'},{key:'ytd',label:'YTD'},{key:'12m',label:'12M'},{key:'6m',label:'6M'},{key:'3m',label:'3M'},{key:'custom',label:'Custom'}];
+
+  return (
+    <div className="wrap">
+      <div className="toolbar">
+        <span className="toolbar-label">Range</span>
+        <div className="range-pills">
+          {DATE_RANGES.map(r=>(
+            <button key={r.key} className={`range-pill${dateRange===r.key?' active':''}`} onClick={()=>setDateRange(r.key)}>{r.label}</button>
+          ))}
+        </div>
+        {dateRange==='custom'&&(
+          <div className="date-inputs">
+            <input type="date" className="date-input" value={customStart} onChange={e=>setCustomStart(e.target.value)} />
+            <span className="date-sep">→</span>
+            <input type="date" className="date-input" value={customEnd} onChange={e=>setCustomEnd(e.target.value)} />
+          </div>
+        )}
+        <div className="toolbar-sep" />
+        <span className="toolbar-label">Owner</span>
+        <OwnerFilter owners={data?.owners||{}} deals={data?.deals||[]} selectedOwners={selectedOwners} onChange={setSelectedOwners} />
+      </div>
+
+      {loading && <div className="spinner" />}
+      {!loading && rows.length > 0 && <PipelineFlowChart rows={rows} yoyRows={allTimeRows} />}
+      {!loading && !data?.deals?.length && (
+        <div style={{textAlign:'center',padding:40,color:'#7A8FA0',fontSize:13}}>
+          No data — run a Full Refresh in the main dashboard first.
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
